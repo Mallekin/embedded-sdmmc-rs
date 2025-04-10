@@ -197,7 +197,7 @@ where
     VolumeAlreadyOpen,
     /// We can't do that yet
     Unsupported,
-    /// Tried to read beyond end of file
+    /// Tried to read or write beyond end of file
     EndOfFile,
     /// Found a bad cluster
     BadCluster,

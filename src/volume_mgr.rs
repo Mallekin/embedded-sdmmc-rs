@@ -3,7 +3,6 @@
 //! The volume manager handles partitions and open files on a block device.
 
 use core::cell::RefCell;
-use core::convert::TryFrom;
 use core::ops::DerefMut;
 
 use byteorder::{ByteOrder, LittleEndian};
@@ -821,10 +820,13 @@ where
             data.open_files[file_idx].current_cluster =
                 (0, data.open_files[file_idx].entry.cluster);
         }
-        let bytes_until_max =
-            usize::try_from(MAX_FILE_SIZE - data.open_files[file_idx].current_offset)
-                .map_err(|_| Error::ConversionError)?;
-        let bytes_to_write = core::cmp::min(buffer.len(), bytes_until_max);
+        let bytes_until_max = MAX_FILE_SIZE - data.open_files[file_idx].current_offset;
+        let (bytes_to_write, error_end_of_file) = if bytes_until_max < buffer.len() as u32 {
+            debug!("Max file size reached");
+            (bytes_until_max as usize, true)
+        } else {
+            (buffer.len(), false)
+        };
         let mut written = 0;
 
         while written < bytes_to_write {
@@ -906,7 +908,11 @@ where
         }
         data.open_files[file_idx].entry.attributes.set_archive(true);
         data.open_files[file_idx].entry.mtime = self.time_source.get_timestamp();
-        Ok(())
+        if error_end_of_file {
+            Err(Error::EndOfFile)
+        } else {
+            Ok(())
+        }
     }
 
     /// Close a file with the given raw file handle.
